@@ -38,9 +38,9 @@ from config import (
 from database import db
 from logutil import log_event
 from matchmaking import JoinStatus, LeaveResult, mm
-
+from pyrogram.enums import ParseMode
 logger = logging.getLogger(__name__)
-PLAIN = enums.ParseMode.DISABLED
+PLAIN = enums.ParseMode.HTML
 
 
 # =========================================================== delivery helpers
