@@ -9,10 +9,13 @@ messages via send_* methods (by file_id). It never calls forward/copy. The sole
 copy in the project is the moderation copy in moderation.py (private log channel).
 """
 import asyncio
+import inspect
 import logging
+import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
-from typing import Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 from pyrogram import enums, errors
 from pyrogram.errors import FloodWait
@@ -25,6 +28,11 @@ from pyrogram.types import (
     ReplyKeyboardMarkup,
 )
 
+try:  # newer Pyrogram forks (kurigram) use ReplyParameters instead of reply_to_message_id
+    from pyrogram.types import ReplyParameters
+except ImportError:  # pragma: no cover
+    ReplyParameters = None
+
 import moderation
 import subscription
 import texts
@@ -34,6 +42,9 @@ from config import (
     LOG_CHANNEL,
     MAX_MATCH_ATTEMPTS,
     ONLINE_WINDOW_SECONDS,
+    REPLY_LINK_LIMIT,
+    REPORT_COOLDOWN_SECONDS,
+    REPORT_REASON_MAX,
 )
 from database import db
 from logutil import log_event
@@ -65,25 +76,29 @@ UNREACHABLE_ERRORS = _collect([
 ])
 
 
-async def deliver(send: Callable[[], Awaitable]) -> Delivery:
-    """Run one Telegram send; classify the outcome; never raise."""
+async def deliver_result(send: Callable[[], Awaitable]) -> Tuple[Delivery, Any]:
+    """Run one Telegram send; classify the outcome; never raise. Returns (outcome, sent message(s))."""
     for attempt in range(2):
         try:
-            await send()
-            return Delivery.OK
+            return Delivery.OK, await send()
         except FloodWait as exc:
             wait = getattr(exc, "value", 0) or 0
             if attempt == 0 and wait <= 30:
                 await asyncio.sleep(wait + 1)
                 continue
-            return Delivery.FAILED
+            return Delivery.FAILED, None
         except UNREACHABLE_ERRORS as exc:
             log_event(logger, logging.INFO, "recipient_unreachable", error=type(exc).__name__)
-            return Delivery.UNREACHABLE
+            return Delivery.UNREACHABLE, None
         except Exception as exc:  # includes RPCError; never log content
             log_event(logger, logging.WARNING, "delivery_failed", error=type(exc).__name__)
-            return Delivery.FAILED
-    return Delivery.FAILED
+            return Delivery.FAILED, None
+    return Delivery.FAILED, None
+
+
+async def deliver(send: Callable[[], Awaitable]) -> Delivery:
+    """Same as deliver_result() when the sent message is not needed."""
+    return (await deliver_result(send))[0]
 
 
 async def send_text(client, user_id: int, text: str, **kwargs) -> Delivery:
@@ -293,9 +308,91 @@ def classify(m) -> Optional[str]:
 ALBUM_KINDS = {"photo", "video", "audio", "document"}
 
 
-async def _send_single(client, to: int, m, kind: str):
+# ---- reply threading --------------------------------------------------------
+# The relay re-sends every message as a NEW bot message, so Telegram has no idea which
+# message is a reply to which. We keep a tiny in-memory map of message IDs (never any
+# content) so a swipe-reply on one side becomes a real reply on the other side:
+#   (chat, message_id) -> the same message's ID in the partner's chat + who wrote it.
+# It is also what /report uses to know who wrote the message that was replied to.
+@dataclass
+class _Link:
+    session_id: str
+    author: int        # user who originally wrote the message
+    peer: int          # the other chat the message was relayed to / came from
+    peer_msg: int      # message ID of the counterpart in that other chat
+    reported: bool = False
+
+
+class _LinkStore:
+    def __init__(self, limit: int) -> None:
+        self._limit = limit
+        self._items: "OrderedDict[Tuple[int, int], _Link]" = OrderedDict()
+
+    def put(self, chat_id: int, message_id: int, link: _Link) -> None:
+        key = (chat_id, message_id)
+        self._items[key] = link
+        self._items.move_to_end(key)
+        while len(self._items) > self._limit:
+            self._items.popitem(last=False)
+
+    def get(self, chat_id: int, message_id: int) -> Optional[_Link]:
+        return self._items.get((chat_id, message_id))
+
+    def clear(self) -> None:
+        self._items.clear()
+
+
+links = _LinkStore(REPLY_LINK_LIMIT)
+
+
+def _remember(sender_id: int, sender_msg_id: int, partner_id: int, partner_msg_id: int, session_id: str) -> None:
+    """Link a relayed message in both directions (sender's copy <-> partner's copy)."""
+    if not sender_msg_id or not partner_msg_id:
+        return
+    links.put(sender_id, sender_msg_id, _Link(session_id, sender_id, partner_id, partner_msg_id))
+    links.put(partner_id, partner_msg_id, _Link(session_id, sender_id, sender_id, sender_msg_id))
+
+
+def _reply_target(sender_id: int, m, session_id: str, partner_id: int) -> Optional[int]:
+    """If `m` swipe-replies to a message of THIS chat, return the matching message ID in the partner's chat."""
+    reply_id = getattr(m, "reply_to_message_id", None)
+    if not reply_id:
+        return None
+    link = links.get(sender_id, reply_id)
+    if link is None or link.session_id != session_id or link.peer != partner_id:
+        return None  # unknown, or belongs to an older chat: send as a normal message
+    return link.peer_msg
+
+
+_reply_style: Optional[str] = None
+
+
+def _reply_kwargs(client, message_id: Optional[int]) -> dict:
+    """Reply argument understood by the installed Pyrogram fork (it differs between versions)."""
+    global _reply_style
+    if not message_id:
+        return {}
+    if _reply_style is None:
+        try:
+            params = inspect.signature(client.send_message).parameters
+        except (TypeError, ValueError):
+            params = {}
+        if "reply_parameters" in params and ReplyParameters is not None:
+            _reply_style = "parameters"
+        elif "reply_to_message_id" in params:
+            _reply_style = "id"
+        else:
+            _reply_style = "none"
+    if _reply_style == "parameters":
+        return {"reply_parameters": ReplyParameters(message_id=message_id)}
+    if _reply_style == "id":
+        return {"reply_to_message_id": message_id}
+    return {}
+
+
+async def _send_raw(client, to: int, m, kind: str, reply_to: Optional[int]):
     """Create a NEW bot message for the recipient. Never forward/copy; no sender info."""
-    protect = {"protect_content": True}
+    extra = {"protect_content": True, **_reply_kwargs(client, reply_to)}
     caption = {
         "caption": getattr(m, "caption", None) or "",
         "caption_entities": getattr(m, "caption_entities", None),
@@ -303,35 +400,59 @@ async def _send_single(client, to: int, m, kind: str):
     }
     if kind == "text":
         return await client.send_message(
-            to, m.text, entities=getattr(m, "entities", None), parse_mode=PLAIN, **protect)
+            to, m.text, entities=getattr(m, "entities", None), parse_mode=PLAIN, **extra)
     if kind == "photo":
-        return await client.send_photo(to, m.photo.file_id, **caption, **protect)
+        return await client.send_photo(to, m.photo.file_id, **caption, **extra)
     if kind == "video":
-        return await client.send_video(to, m.video.file_id, **caption, **protect)
+        return await client.send_video(to, m.video.file_id, **caption, **extra)
     if kind == "animation":
-        return await client.send_animation(to, m.animation.file_id, **caption, **protect)
+        return await client.send_animation(to, m.animation.file_id, **caption, **extra)
     if kind == "voice":
-        return await client.send_voice(to, m.voice.file_id, **caption, **protect)
+        return await client.send_voice(to, m.voice.file_id, **caption, **extra)
     if kind == "audio":
-        return await client.send_audio(to, m.audio.file_id, **caption, **protect)
+        return await client.send_audio(to, m.audio.file_id, **caption, **extra)
     if kind == "document":
-        return await client.send_document(to, m.document.file_id, **caption, **protect)
+        return await client.send_document(to, m.document.file_id, **caption, **extra)
     if kind == "video_note":
-        return await client.send_video_note(to, m.video_note.file_id, **protect)
+        return await client.send_video_note(to, m.video_note.file_id, **extra)
     if kind == "sticker":
-        return await client.send_sticker(to, m.sticker.file_id, **protect)
+        return await client.send_sticker(to, m.sticker.file_id, **extra)
     if kind == "location":
-        return await client.send_location(to, m.location.latitude, m.location.longitude, **protect)
+        return await client.send_location(to, m.location.latitude, m.location.longitude, **extra)
     if kind == "venue":
         v = m.venue
         return await client.send_venue(
-            to, v.location.latitude, v.location.longitude, v.title, v.address, **protect)
+            to, v.location.latitude, v.location.longitude, v.title, v.address, **extra)
     if kind == "contact":
         c = m.contact
         return await client.send_contact(
             to, c.phone_number, c.first_name, last_name=c.last_name or "",
-            vcard=c.vcard or "", **protect)
+            vcard=c.vcard or "", **extra)
     raise ValueError("unsupported kind")  # caught by deliver(); never falls back to copy/forward
+
+
+async def _send_single(client, to: int, m, kind: str, reply_to: Optional[int] = None):
+    """Send as a reply when possible; if Telegram rejects the reply target, send it plainly."""
+    if reply_to:
+        try:
+            return await _send_raw(client, to, m, kind, reply_to)
+        except (FloodWait,) + UNREACHABLE_ERRORS:
+            raise
+        except (errors.RPCError, TypeError) as exc:
+            log_event(logger, logging.INFO, "reply_target_rejected", error=type(exc).__name__)
+    return await _send_raw(client, to, m, kind, None)
+
+
+async def _send_album(client, to: int, media: list, reply_to: Optional[int] = None):
+    if reply_to:
+        try:
+            return await client.send_media_group(
+                to, media, protect_content=True, **_reply_kwargs(client, reply_to))
+        except (FloodWait,) + UNREACHABLE_ERRORS:
+            raise
+        except (errors.RPCError, TypeError) as exc:
+            log_event(logger, logging.INFO, "reply_target_rejected", error=type(exc).__name__)
+    return await client.send_media_group(to, media, protect_content=True)
 
 
 def _album_item(m, kind: str):
@@ -380,12 +501,22 @@ async def _flush_album(client, key: tuple) -> None:
         return  # session ended meanwhile: drop, never redirect to someone else
     partner_id = session.partner_of(sender_id)
     pairs = sorted(zip(album.messages, album.kinds), key=lambda p: p[0].id)[:10]
+    reply_to = None
+    for m, _kind in pairs:  # the swipe-reply is attached to one (usually the first) album item
+        reply_to = _reply_target(sender_id, m, session_id, partner_id)
+        if reply_to:
+            break
     if len(pairs) == 1:
         m, kind = pairs[0]
-        result = await deliver(lambda: _send_single(client, partner_id, m, kind))
+        result, sent = await deliver_result(lambda: _send_single(client, partner_id, m, kind, reply_to))
+        sent_list = [sent]
     else:
         media = [_album_item(m, kind) for m, kind in pairs]
-        result = await deliver(lambda: client.send_media_group(partner_id, media, protect_content=True))
+        result, sent = await deliver_result(lambda: _send_album(client, partner_id, media, reply_to))
+        sent_list = list(sent or [])
+    if result is Delivery.OK:
+        for (orig, _kind), out in zip(pairs, sent_list):
+            _remember(sender_id, orig.id, partner_id, getattr(out, "id", 0), session_id)
     await _after_delivery(client, sender_id, session_id, result)
 
 
@@ -448,8 +579,88 @@ async def relay_message(client, message) -> None:
         _buffer_album(client, uid, session_id, message, kind)
         return
 
-    result = await deliver(lambda: _send_single(client, partner_id, message, kind))
+    reply_to = _reply_target(uid, message, session_id, partner_id)
+    result, sent = await deliver_result(lambda: _send_single(client, partner_id, message, kind, reply_to))
+    if result is Delivery.OK:
+        _remember(uid, message.id, partner_id, getattr(sent, "id", 0), session_id)
     await _after_delivery(client, uid, session_id, result)
+
+
+# ================================================================ /report
+_last_report: Dict[int, float] = {}
+
+
+async def _lookup_user(client, user_id: int):
+    """Name/username of the reported user (None if Telegram can't resolve them)."""
+    try:
+        return await client.get_users(user_id)
+    except Exception as exc:
+        log_event(logger, logging.INFO, "report_user_lookup_failed", error=type(exc).__name__)
+        return None
+
+
+async def handle_report(client, message) -> None:
+    """/report as a swipe-reply to a partner's message -> details go to LOG_CHANNEL."""
+    user = message.from_user
+    if user is None:
+        return
+    uid = user.id
+    mm.touch(uid)
+    if mm.is_banned(uid):
+        await send_text(client, uid, texts.BANNED)
+        return
+
+    reply_id = getattr(message, "reply_to_message_id", None)
+    if not reply_id:
+        await send_text(client, uid, texts.REPORT_USAGE)
+        return
+    link = links.get(uid, reply_id)
+    if link is None:
+        await send_text(client, uid, texts.REPORT_NOT_FOUND)
+        return
+    if link.author == uid:
+        await send_text(client, uid, texts.REPORT_OWN_MESSAGE)
+        return
+    if link.reported:
+        await send_text(client, uid, texts.REPORT_ALREADY)
+        return
+    now = time.monotonic()
+    if now - _last_report.get(uid, -REPORT_COOLDOWN_SECONDS) < REPORT_COOLDOWN_SECONDS:
+        await send_text(client, uid, texts.REPORT_COOLDOWN)
+        return
+    _last_report[uid] = now  # set before any await so rapid repeats can't slip through
+
+    target = getattr(message, "reply_to_message", None)
+    if target is None or getattr(target, "empty", False):
+        try:
+            target = await client.get_messages(message.chat.id, reply_id)
+        except Exception as exc:
+            log_event(logger, logging.INFO, "report_fetch_failed", error=type(exc).__name__)
+            target = None
+    if target is not None and getattr(target, "empty", False):
+        target = None
+    kind = classify(target) if target is not None else None
+
+    args = message.command[1:] if message.command else []
+    reason = " ".join(args).strip()[:REPORT_REASON_MAX] or None
+
+    reported_id = link.author
+    reported_user = await _lookup_user(client, reported_id)
+    sent = await moderation.log_report(
+        client,
+        reporter=user,
+        reported_id=reported_id,
+        reported_user=reported_user,
+        message=target,
+        kind=kind,
+        reason=reason,
+    )
+    if sent:
+        link.reported = True
+        await send_text(client, uid, texts.REPORT_SENT)
+    else:
+        _last_report.pop(uid, None)  # let them retry right away
+        await send_text(client, uid, texts.REPORT_FAILED)
 
 
 # ====================================================== lifecycle / background
@@ -493,6 +704,9 @@ async def janitor() -> None:
                 await _sync_banned()
             mm.prune_activity(ONLINE_WINDOW_SECONDS)
             subscription.prune_cache()
+            cutoff = time.monotonic() - REPORT_COOLDOWN_SECONDS
+            for uid in [u for u, t in _last_report.items() if t < cutoff]:
+                del _last_report[uid]
         except Exception as exc:  # the janitor must never die
             log_event(logger, logging.ERROR, "janitor_error", error=type(exc).__name__)
 
@@ -501,6 +715,7 @@ async def shutdown(client) -> None:
     """Discard all sessions/queue and tell affected users (best effort, bounded)."""
     users = mm.snapshot_active_users()
     waiting, sessions = await mm.clear()
+    links.clear()
     log_event(logger, logging.INFO, "state_cleared", waiting=waiting, sessions=sessions)
     if not users:
         return
