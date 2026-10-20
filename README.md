@@ -21,8 +21,8 @@ texts.py          User-facing strings
 logutil.py        Structured "event=… key=value" logging helper
 plugins/          Thin handlers, auto-loaded by Pyrogram
   start.py        /start, /help, "Check Subscription" button
-  chat.py         /chat, /next, /stop
-  admin.py        /ban, /unban, /stats (ADMIN_ID only)
+  chat.py         /chat, /next, /stop, /report
+  admin.py        /ban, /unban, /stats (ADMIN_IDS only)
   relay.py        Anonymous message relay + unknown-command reply
 ```
 
@@ -42,7 +42,7 @@ invalid values — never the values.
 | `AUTH_CHANNEL_URLS` | no* | Join links, comma-separated, same order as `AUTH_CHANNELS` (empty entry = auto). *Required for private channels* |
 | `LOG_CHANNEL` | yes | Numeric ID of the moderation channel |
 | `LOG_MEDIA_TYPES` | no | Media types copied to the log channel (default: photo, video, video_note, animation, voice, audio, document) |
-| `ADMIN_ID` | yes | Numeric Telegram user ID of the single administrator |
+| `ADMIN_IDS` | yes | One or more numeric Telegram user IDs, comma-separated (e.g. `111,222,333`). Every listed user can run the admin commands. The old `ADMIN_ID` still works (it may also hold a list) |
 
 ### MongoDB
 Create a free cluster (e.g. MongoDB Atlas), create a database user, allow your host's
@@ -62,18 +62,19 @@ positive result is reused for 2 minutes. If the check itself fails, access is de
 
 ### Moderation channel (`LOG_CHANNEL`)
 Create a **private** channel, add the bot as an admin with permission to post, and set
-its numeric ID. Logged: `NEW USER` events and a copy of selected media (sender's
-Telegram ID in the caption, album ID for albums). Text is never logged. Restrict
+its numeric ID. Logged: `NEW USER` events, a copy of selected media (sender's
+Telegram ID in the caption, album ID for albums) and `USER REPORT`s (see `/report`). Chat text is never logged, except a message that a user explicitly reports. Restrict
 channel access to trusted moderators.
 
-### Administrator (`ADMIN_ID`)
-Your own numeric Telegram user ID (e.g. from @userinfobot).
+### Administrators (`ADMIN_IDS`)
+Numeric Telegram user IDs of everyone who may moderate (e.g. from @userinfobot), separated by commas: `ADMIN_IDS=111111111,222222222`. An administrator cannot be banned with `/ban`.
 
 ## Commands
 
 | Command | Who | Effect |
 |---|---|---|
 | `/start`, `/help`, `/chat`, `/next`, `/stop` | everyone | as described in `/help` |
+| `/report [reason]` | everyone | Swipe-reply to a message from your partner with `/report`. The reported user's ID, name and username (if available), the reporter, the optional reason and the message itself are sent to `LOG_CHANNEL` |
 | `/ban USER_ID [reason]` | admin | Bans, ends their chat/queue entry, notifies the partner. Works for IDs that never started the bot |
 | `/unban USER_ID` | admin | Clears the ban (they must `/chat` again) |
 | `/stats` | admin | Registered / online (active in last 5 min) / waiting / sessions / chatting / banned / sessions since restart |
@@ -107,7 +108,7 @@ tells active users their chat ended, clears all in-memory state, and closes Mong
 
 - Relayed messages use `protect_content`, which blocks forwarding/saving in Telegram clients. Nothing can stop screenshots, screen recording, manual copying of text, or a client that ignores the flag.
 - This is **not end-to-end encrypted**: the bot server sees all traffic and moderators see logged media (stated in `/help`).
-- Albums are re-sent as albums after a ~1 s collection window (max 10 items). Polls, dice, games and other types are rejected with a notice. Edits and deletions are not mirrored; replies/quotes are not preserved.
+- Albums are re-sent as albums after a ~1 s collection window (max 10 items). Polls, dice, games and other types are rejected with a notice. Edits and deletions are not mirrored. Swipe-replies are preserved (the partner sees a real reply) for messages relayed since the last restart; quotes of part of a message are not.
 - Location, contact and venue messages contain whatever the sender chooses to share.
 - A user who leaves any `AUTH_CHANNELS` channel mid-chat is removed at their next message (within the cache window).
 - Single process only: sessions are not shared between multiple instances.
