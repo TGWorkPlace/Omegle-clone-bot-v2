@@ -1,71 +1,154 @@
 """User-facing strings (plain text; sent with parse mode disabled)."""
 
 WELCOME = (
-    "👋 Welcome to Anonymous Chat!\n\n"
-    "Talk to random strangers without revealing who you are.\n\n"
-    "Use /chat to find a stranger.\n"
-    "Use /help to see how everything works."
+    "💗 Welcome to 𝑳𝒐𝒗𝒆 𝑫𝒂𝒕𝒆 𝑩𝒐𝒕 💗\n\n"
+    "💕 Every stranger is a new possibility!\n\n"
+    "💬 Meet new people, make friends, flirt, and discover unexpected connections.\n"
+    "🎭 Chat anonymously without revealing your Telegram identity to your partner.\n"
+    "🦋 Your next connection could be just one message away!\n\n"
+    "💘 Ready to meet someone special?\n"
+    "Use /chat to find your match.\n"
+    "Use /help to learn more."
 )
 
 HELP = (
-    "ℹ️ Anonymous Chat — Help\n\n"
-    "Commands:\n"
-    "/chat – find a random stranger\n"
-    "/next – leave this chat and find someone new\n"
-    "/stop – end the chat or cancel your search\n"
+    "💗 𝑳𝒐𝒗𝒆 𝑫𝒂𝒕𝒆 𝑩𝒐𝒕 — Help 💗\n\n"
+    "💬 Commands:\n"
+    "/chat – meet a random person\n"
+    "/next – leave your current chat and meet someone new\n"
+    "/stop – end your chat or cancel your search\n"
     "/help – show this message\n\n"
-    "How it works:\n"
-    "Send /chat and you'll be paired with a random person. Your messages are "
-    "relayed by the bot, keeping your Telegram name, username and ID hidden "
-    "from your chat partner. Text, photos, videos, voice messages, audio, "
-    "documents, stickers, GIFs, video notes, locations, contacts and venues "
-    "are supported.\n\n"
+    "💕 How it works:\n"
+    "Start with /chat and we'll connect you with a random person.\n"
+    "Break the ice, make friends, flirt, or see where the conversation goes!\n\n"
+    "🎭 Your Telegram name, username and ID are not shared with your "
+    "chat partner through the bot.\n\n"
+    "📸 Supported messages include text, photos, videos, voice messages, "
+    "audio, documents, stickers, GIFs, video notes, locations, contacts and venues.\n\n"
     "🔒 Privacy & Safety:\n"
-    "• No admin or moderator can view your messages or media through the bot.\n"
-    "• Chats are not permanently stored by the bot and is completely anonymous.\n"
-    "• Your Telegram identity remains hidden from your chat partner.\n"
-    "• Enjoy unrestricted conversations with no message-content filtering.\n"
-    "• This is an anonymous and end-to-end encrypted chat by default.\n"
-    "• Your partner cannot screenshot, copy or save messages and media.\n"
-    "• Respect other users and their privacy."
+    "• Your partner won't automatically see your Telegram profile details "
+    "through messages relayed by the bot.\n"
+    "• Chat data is held temporarily as required by the bot's implementation "
+    "and may be lost when the bot restarts.\n"
+    "• This bot does not guarantee end-to-end encryption.\n"
+    "• Your partner may screenshot, copy or save messages and media.\n"
+    "• Avoid sharing passwords, financial information or sensitive personal details.\n"
+    "• Treat everyone with respect. Abusive users may be banned.\n\n"
+    "💗 Be yourself, stay safe, and enjoy meeting new people!"
 )
 
-SEARCHING = "🔎 Looking for a stranger...\nPlease wait while we find someone for you."
+SEARCHING = (
+    "💘 Looking for someone special...\n\n"
+    "🔎 Searching for a stranger to connect with you.\n"
+    "💕 Your next interesting conversation might be just around the corner!"
+)
+
 CONNECTED = (
-    "✅ Stranger found!\n"
-    "You are now connected.\n\n"
-    "Send a message to start chatting.\n\n"
-    "Use /next to find another stranger.\n"
-    "Use /stop to end this chat."
+    "💗 It's a Match... Well, a conversation at least! 💗\n\n"
+    "✨ You've been connected with someone new.\n"
+    "💬 Say hello and let the conversation begin!\n\n"
+    "💕 Be friendly, be yourself, and see where things go.\n\n"
+    "🔄 /next – meet someone else\n"
+    "🛑 /stop – end this conversation"
 )
-PARTNER_LEFT = "❌ Your stranger has disconnected.\n\nUse /chat to find someone new."
-CHAT_ENDED = "🛑 Chat ended.\n\nUse /chat whenever you want to meet another stranger."
-SEARCH_CANCELLED = "🛑 Search cancelled.\n\nUse /chat whenever you want to meet a stranger."
-NOT_ACTIVE = "You're not in a chat right now.\n\nUse /chat to find a stranger."
-STILL_SEARCHING = "🔎 Still looking for a stranger...\nUse /stop to cancel the search."
+
+PARTNER_LEFT = (
+    "💔 Your chat partner has left the conversation.\n\n"
+    "💕 Don't worry! There are more people to meet.\n"
+    "Use /chat to start a new conversation."
+)
+
+CHAT_ENDED = (
+    "💗 Conversation ended!\n\n"
+    "✨ Every ending makes room for a new connection.\n"
+    "Use /chat whenever you're ready to meet someone new."
+)
+
+SEARCH_CANCELLED = (
+    "🛑 Your search has been cancelled.\n\n"
+    "💕 Someone new could be waiting for you.\n"
+    "Use /chat whenever you're ready."
+)
+
+NOT_ACTIVE = (
+    "💬 You're not chatting with anyone right now.\n\n"
+    "💗 Ready to meet someone new?\n"
+    "Use /chat to find a random person."
+)
+
+STILL_SEARCHING = (
+    "🔎 Still looking for your next connection...\n\n"
+    "💕 Please wait while we search for someone.\n"
+    "Use /stop if you'd like to cancel."
+)
+
 ALREADY_CHATTING = (
-    "💬 You're already chatting with a stranger.\n\n"
-    "Use /next to find someone else or /stop to end the chat."
+    "💞 You're already talking to someone!\n\n"
+    "Enjoy your conversation or:\n"
+    "🔄 Use /next to meet someone new.\n"
+    "🛑 Use /stop to end the conversation."
 )
+
 ALREADY_WAITING = (
-    "🔎 You're already in the queue. Please wait while we find someone for you.\n\n"
-    "Use /stop to cancel."
+    "🔎 You're already in the matchmaking queue!\n\n"
+    "💕 Please wait while we look for someone.\n"
+    "Use /stop if you'd like to cancel your search."
 )
-CHAT_GONE = "❌ This chat has already ended.\n\nUse /chat to find a stranger."
-BANNED = "🚫 You are banned from using this bot."
-UNAVAILABLE = "⚠️ Service temporarily unavailable. Please try again in a moment."
-UNSUPPORTED = "⚠️ This type of message can't be sent in the anonymous chat."
-DELIVERY_FAILED = "⚠️ Your message couldn't be delivered. Please try again."
-UNKNOWN_COMMAND = "❓ Unknown command. Use /help to see what I can do."
+
+CHAT_GONE = (
+    "💔 This conversation has already ended.\n\n"
+    "💕 There are more people to meet!\n"
+    "Use /chat to start a new conversation."
+)
+
+BANNED = (
+    "🚫 You cannot use 𝑳𝒐𝒗𝒆 𝑫𝒂𝒕𝒆 𝑩𝒐𝒕 because your account has been banned."
+)
+
+UNAVAILABLE = (
+    "🥺 Something went wrong on our side.\n\n"
+    "Please try again in a moment. 💗"
+)
+
+UNSUPPORTED = (
+    "⚠️ This type of message isn't supported in the current chat.\n\n"
+    "💬 Try sending a text message or another supported type of media."
+)
+
+DELIVERY_FAILED = (
+    "💔 Your message couldn't be delivered.\n\n"
+    "Please try again. If the problem continues, your chat may have ended."
+)
+
+UNKNOWN_COMMAND = (
+    "❓ I don't recognize that command.\n\n"
+    "💗 Use /help to see the available commands."
+)
+
 SUB_REQUIRED = (
-    "👋 Almost there!\n\n"
-    "To use this bot you need to join our channels first. "
-    "After joining, tap “Check Subscription”."
+    "💗 One little step before you begin!\n\n"
+    "💕 Join our required channels to unlock 𝑳𝒐𝒗𝒆 𝑫𝒂𝒕𝒆 𝑩𝒐𝒕.\n\n"
+    "Once you've joined, tap “Check Subscription” and start meeting new people! 💘"
 )
+
 SUB_REQUIRED_NO_LINK = (
-    "👋 Almost there!\n\n"
-    "To use this bot you need to join our channels first, then tap “Check Subscription”."
+    "💗 Welcome to 𝑳𝒐𝒗𝒆 𝑫𝒂𝒕𝒆 𝑩𝒐𝒕!\n\n"
+    "💕 Please join all required channels to continue.\n"
+    "Then tap “Check Subscription” to get started."
 )
-SUB_VERIFIED = "✅ Subscription verified! You're all set."
-SUB_NOT_JOINED = "❌ You haven't joined all the required channels yet."
-SHUTDOWN = "⚠️ The bot is restarting, so your chat has ended.\n\nUse /chat in a moment to meet a new stranger."
+
+SUB_VERIFIED = (
+    "✅ You're all set!\n\n"
+    "💗 Welcome to 𝑳𝒐𝒗𝒆 𝑫𝒂𝒕𝒆 𝑩𝒐𝒕.\n"
+    "💕 Use /chat to meet someone new!"
+)
+
+SUB_NOT_JOINED = (
+    "❌ You haven't joined all the required channels yet.\n\n"
+    "💕 Join them all and tap “Check Subscription” again."
+)
+
+SHUTDOWN = (
+    "🔄 𝑳𝒐𝒗𝒆 𝑫𝒂𝒕𝒆 𝑩𝒐𝒕 is restarting, so your current conversation has ended.\n\n"
+    "💗 Please come back shortly and use /chat to meet someone new!"
+)
