@@ -6,7 +6,7 @@ from pyrogram.types import Message
 
 import service
 import texts
-from config import ADMIN_ID
+from config import ADMIN_IDS
 from logutil import log_event
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 async def _authorized(client: Client, message: Message) -> bool:
     user = message.from_user
-    if user is not None and user.id == ADMIN_ID:
+    if user is not None and user.id in ADMIN_IDS:
         return True
     # Don't reveal that admin commands exist: answer like any unknown command.
     if user is not None:
@@ -65,8 +65,8 @@ async def ban_handler(client: Client, message: Message):
     if target is None:
         await _reply(client, message, "Usage: /ban USER_ID [reason]\nExample: /ban 123456789")
         return
-    if target == ADMIN_ID:
-        await _reply(client, message, "⚠️ You can't ban the administrator account.")
+    if target in ADMIN_IDS:
+        await _reply(client, message, "⚠️ You can't ban an administrator account.")
         return
     db_ok, left = await service.ban_user(client, target, reason)
     lines = [f"✅ User {target} has been banned."]
