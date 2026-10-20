@@ -19,6 +19,7 @@ HELP = (
     "▫️ /chat — Meet a random person\n"
     "▫️ /next — Leave your current chat and meet someone new\n"
     "▫️ /stop — End your chat or cancel your search\n"
+    "▫️ /report — Swipe-reply to your partner's message with /report to report them\n"
     "▫️ /help — Show this message\n\n"
     "💕 <b>How It Works</b>\n"
     "<blockquote>Start with /chat and we'll connect you with a random person. "
@@ -36,7 +37,8 @@ HELP = (
     "▫️ This bot does not guarantee end-to-end encryption.\n"
     "▫️ Your partner may screenshot, copy, or save messages and media.\n"
     "▫️ Avoid sharing passwords, financial information, or sensitive personal details.\n"
-    "▫️ Treat everyone with respect. Abusive users may be banned.\n\n"
+    "▫️ Treat everyone with respect. Abusive users may be banned.\n"
+    "▫️ Reports are sent to the moderators together with the reported message.\n\n"
     "<blockquote>💗 <i>Be yourself, stay safe, and enjoy meeting new people!</i></blockquote>"
 )
 
@@ -168,4 +170,42 @@ SHUTDOWN = (
     "🔄 <b>𝑳𝒐𝒗𝒆 𝑫𝒂𝒕𝒆 𝑩𝒐𝒕 Is Restarting</b>\n\n"
     "<blockquote>💗 Your current conversation has ended because the bot is restarting.\n"
     "Please come back shortly to meet someone new!</blockquote>"
+)
+
+REPORT_USAGE = (
+    "🚩 <b>How to Report</b>\n\n"
+    "<blockquote>Swipe the message you want to report, reply to it with <b>/report</b> "
+    "and send. You can add a reason: <code>/report spam</code></blockquote>"
+)
+
+REPORT_NOT_FOUND = (
+    "⚠️ <b>Can't Report That Message</b>\n\n"
+    "<blockquote>Reply to a message your chat partner sent you. "
+    "Bot notices and messages from before the last restart can't be reported.</blockquote>"
+)
+
+REPORT_OWN_MESSAGE = (
+    "⚠️ <b>That's Your Own Message</b>\n\n"
+    "<blockquote>Reply to a message from the other person to report them.</blockquote>"
+)
+
+REPORT_ALREADY = (
+    "ℹ️ <b>Already Reported</b>\n\n"
+    "<blockquote>You've already reported this message. Our moderators have it.</blockquote>"
+)
+
+REPORT_COOLDOWN = (
+    "⏳ <b>Slow Down</b>\n\n"
+    "<blockquote>Please wait a few seconds before sending another report.</blockquote>"
+)
+
+REPORT_SENT = (
+    "✅ <b>Report Sent</b>\n\n"
+    "<blockquote>Thanks! The moderators will review it. "
+    "Use /next to leave this chat if you feel uncomfortable.</blockquote>"
+)
+
+REPORT_FAILED = (
+    "🥺 <b>Report Not Sent</b>\n\n"
+    "<blockquote>Something went wrong while sending your report. Please try again in a moment.</blockquote>"
 )
