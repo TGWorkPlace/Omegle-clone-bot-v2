@@ -5,6 +5,7 @@ A local ``.env`` file is loaded automatically if python-dotenv is installed
 (handy for local runs). On hosting platforms, set real environment variables.
 """
 import os
+import re
 
 try:  # optional convenience for local development
     from dotenv import load_dotenv
@@ -80,7 +81,32 @@ def _parse_channels() -> list:
 
 AUTH_CHANNELS = _parse_channels()          # force-subscription channel IDs (all required)
 LOG_CHANNEL = _int_env("LOG_CHANNEL")     # moderation log channel ID
-ADMIN_ID = _int_env("ADMIN_ID")           # the single authorized administrator
+
+
+def _parse_admins() -> frozenset:
+    """ADMIN_IDS="111,222,333" (one or more positive user IDs; commas and/or spaces).
+
+    Falls back to the legacy ADMIN_ID variable, which may also hold a list.
+    """
+    raw = os.environ.get("ADMIN_IDS", "").strip() or os.environ.get("ADMIN_ID", "").strip()
+    if not raw:
+        _problems.append("ADMIN_IDS is missing")
+        return frozenset()
+    ids = set()
+    for part in re.split(r"[,\s]+", raw):
+        if not part:
+            continue
+        if not part.isdigit() or int(part) <= 0:  # user IDs are positive integers
+            # Never echo the value: it may be a credential typed into the wrong field.
+            _problems.append("ADMIN_IDS must be comma-separated positive numeric Telegram user IDs")
+            return frozenset()
+        ids.add(int(part))
+    if not ids:
+        _problems.append("ADMIN_IDS is missing")
+    return frozenset(ids)
+
+
+ADMIN_IDS = _parse_admins()               # every user allowed to run /ban, /unban, /stats
 # Optional join links, comma-separated, in the same order as AUTH_CHANNELS (leave an
 # entry empty to auto-resolve it: "https://t.me/+abc,,https://t.me/+xyz"). Needed for
 # private channels; a public @username is resolved automatically.
@@ -104,13 +130,14 @@ ONLINE_WINDOW_SECONDS = 300        # "online" = interacted in the last 5 minutes
 SUBSCRIPTION_CACHE_TTL = 120       # seconds a positive membership result is reused while relaying
 ALBUM_WAIT_SECONDS = 1.2           # how long to collect album items before sending
 MAX_MATCH_ATTEMPTS = 20            # retries when waiting partners turn out to be unreachable
+REPLY_LINK_LIMIT = 40000           # message-ID links kept in memory (2 per relayed message, oldest dropped first)
+REPORT_COOLDOWN_SECONDS = 15       # minimum gap between two /report commands from one user
+REPORT_REASON_MAX = 300            # characters of the optional reason kept in the log
 
 
 def validate_config() -> list:
     """Return a list of human-readable problems (names only, never values)."""
     problems = list(_problems)
-    if ADMIN_ID < 0:
-        problems.append("ADMIN_ID must be a positive Telegram user ID")
     unknown = LOG_MEDIA_TYPES - KNOWN_MEDIA_TYPES
     if unknown:
         problems.append("LOG_MEDIA_TYPES contains unknown type names: " + ", ".join(sorted(unknown)))
