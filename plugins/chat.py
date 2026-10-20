@@ -20,3 +20,9 @@ async def next_handler(client: Client, message: Message):
 async def stop_handler(client: Client, message: Message):
     if message.from_user:
         await service.handle_stop(client, message.from_user)
+
+
+@Client.on_message(filters.command("report") & filters.private)
+async def report_handler(client: Client, message: Message):
+    if message.from_user:
+        await service.handle_report(client, message)
