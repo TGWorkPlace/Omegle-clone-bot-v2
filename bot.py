@@ -3,6 +3,7 @@ import logging
 import sys
 
 from pyrogram import Client
+from pyrogram.enums import ParseMode
 
 import service
 from config import API_ID, API_HASH, BOT_TOKEN, validate_config
@@ -22,8 +23,7 @@ class BroadcastBot(Client):
             api_id=API_ID,
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
-            # Auto-discovers and imports every module in plugins/ on start,
-            # which is what actually registers any @Client.on_message handlers.
+            parse_mode=ParseMode.HTML,  # ADD THIS LINE
             plugins=dict(root="plugins"),
         )
 
