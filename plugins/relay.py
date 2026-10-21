@@ -4,7 +4,7 @@ from pyrogram.types import Message
 import service
 import texts
 
-KNOWN_COMMANDS = ["start", "help", "chat", "next", "stop", "report", "ban", "unban", "stats"]
+KNOWN_COMMANDS = ["start", "help", "chat", "next", "stop", "report", "ban", "unban", "stats", "broadcast"]
 
 
 async def _command_like(_, __, message: Message) -> bool:
