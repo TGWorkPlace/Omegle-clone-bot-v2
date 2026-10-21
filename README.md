@@ -23,6 +23,7 @@ plugins/          Thin handlers, auto-loaded by Pyrogram
   start.py        /start, /help, "Check Subscription" button
   chat.py         /chat, /next, /stop, /report
   admin.py        /ban, /unban, /stats (ADMIN_IDS only)
+  broadcast.py    /broadcast with live progress + cancel button (ADMIN_IDS only)
   relay.py        Anonymous message relay + unknown-command reply
 ```
 
@@ -77,6 +78,7 @@ Numeric Telegram user IDs of everyone who may moderate (e.g. from @userinfobot),
 | `/report [reason]` | everyone | Swipe-reply to a message from your partner with `/report`. The reported user's ID, name and username (if available), the reporter, the optional reason and the message itself are sent to `LOG_CHANNEL` |
 | `/ban USER_ID [reason]` | admin | Bans, ends their chat/queue entry, notifies the partner. Works for IDs that never started the bot |
 | `/unban USER_ID` | admin | Clears the ban (they must `/chat` again) |
+| `/broadcast` | admin | Reply to any message with `/broadcast` to copy it to every user who started the bot (banned users skipped). Progress (total / sent / blocked / failed / time) updates every 7 s with a Cancel button |
 | `/stats` | admin | Registered / online (active in last 5 min) / waiting / sessions / chatting / banned / sessions since restart |
 
 Non-admins who try admin commands get the same reply as for any unknown command.
