@@ -123,6 +123,14 @@ class Database:
             ids.append(doc["_id"])
         return ids
 
+    async def list_broadcast_ids(self) -> List[int]:
+        """IDs of users who started the bot (ban-only stubs have first_seen=None) and aren't banned."""
+        ids: List[int] = []
+        query = {"first_seen": {"$ne": None}, "is_banned": {"$ne": True}}
+        async for doc in self.users.find(query, {"_id": 1}):
+            ids.append(doc["_id"])
+        return ids
+
     async def increment_total_chats(self, user_ids: Iterable[int]) -> None:
         await self.users.update_many(
             {"_id": {"$in": list(user_ids)}},
