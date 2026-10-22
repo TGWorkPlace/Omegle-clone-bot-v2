@@ -55,10 +55,12 @@ MAX_AUTH_CHANNELS = 5
 
 
 def _parse_channels() -> list:
-    """AUTH_CHANNELS="-100111,-100222" (1-5 numeric IDs). Falls back to the legacy single AUTH_CHANNEL."""
+    """
+    OPTIONAL. AUTH_CHANNELS="-100111,-100222" (1-5 numeric IDs). Falls back to the legacy
+    single AUTH_CHANNEL. Unset/empty = force-subscription disabled (everyone passes the gate).
+    """
     raw = os.environ.get("AUTH_CHANNELS", "").strip() or os.environ.get("AUTH_CHANNEL", "").strip()
     if not raw:
-        _problems.append("AUTH_CHANNELS is missing")
         return []
     ids = []
     for part in raw.split(","):
@@ -70,16 +72,14 @@ def _parse_channels() -> list:
         except ValueError:
             _problems.append("AUTH_CHANNELS must be comma-separated numeric Telegram IDs")
             return []
-    if not ids:
-        _problems.append("AUTH_CHANNELS is missing")
-    elif len(ids) > MAX_AUTH_CHANNELS:
+    if len(ids) > MAX_AUTH_CHANNELS:
         _problems.append(f"AUTH_CHANNELS supports at most {MAX_AUTH_CHANNELS} channels")
     elif len(set(ids)) != len(ids):
         _problems.append("AUTH_CHANNELS contains duplicate IDs")
     return ids
 
 
-AUTH_CHANNELS = _parse_channels()          # force-subscription channel IDs (all required)
+AUTH_CHANNELS = _parse_channels()          # force-subscription channel IDs (optional; all required when set)
 LOG_CHANNEL = _int_env("LOG_CHANNEL")     # moderation log channel ID
 
 
@@ -107,7 +107,7 @@ def _parse_admins() -> frozenset:
 
 
 ADMIN_IDS = _parse_admins()               # every user allowed to run /ban, /unban, /stats
-# Optional join links, comma-separated, in the same order as AUTH_CHANNELS (leave an
+# Optional join links (only meaningful with AUTH_CHANNELS), comma-separated, in the same order as AUTH_CHANNELS (leave an
 # entry empty to auto-resolve it: "https://t.me/+abc,,https://t.me/+xyz"). Needed for
 # private channels; a public @username is resolved automatically.
 _urls_raw = os.environ.get("AUTH_CHANNEL_URLS", "").strip() or os.environ.get("AUTH_CHANNEL_URL", "").strip()
